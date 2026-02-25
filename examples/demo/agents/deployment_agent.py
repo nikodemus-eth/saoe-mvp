@@ -99,8 +99,9 @@ def _assemble_html(text_data: dict, img_data: dict | None) -> str:
 
     img_html = ""
     if img_data:
-        img_path = bleach.clean(img_data["image_path"], tags=[], strip=True)
-        img_html = f'<img src="{img_path}" alt="Article image" />\n'
+        # Use only the filename as a relative URL so the log viewer can serve it
+        img_filename = bleach.clean(Path(img_data["image_path"]).name, tags=[], strip=True)
+        img_html = f'<img src="/output/{img_filename}" alt="Article image" style="max-width:100%;height:auto;" />\n'
 
     return (
         "<!DOCTYPE html>\n"

@@ -32,6 +32,7 @@ _DEFAULT_PORT = 8080
 _CSP = (
     "default-src 'none'; "
     "style-src 'unsafe-inline'; "
+    "img-src 'self'; "
     "frame-ancestors 'none'"
 )
 
@@ -198,6 +199,30 @@ class LogViewerHandler(BaseHTTPRequestHandler):
             # The article HTML was already sanitized by deployment_agent; serve as-is.
             body = article_path.read_text(encoding="utf-8")
             self._send(200, body)
+
+        elif path.startswith("/output/") and any(
+            path.endswith(ext) for ext in (".jpg", ".jpeg", ".png")
+        ):
+            filename = path[len("/output/"):]
+            import re
+            # FT-008: safe filename guard — only allow known image filenames
+            if not re.fullmatch(r"[A-Za-z0-9_\-]+\.(jpg|jpeg|png)", filename):
+                self._send(400, "<h1>Bad Request</h1>")
+                return
+            img_path = self.output_dir / filename
+            if not img_path.exists():
+                self._send(404, "<h1>Not Found</h1>")
+                return
+            ext = filename.rsplit(".", 1)[-1].lower()
+            content_type = "image/jpeg" if ext in ("jpg", "jpeg") else "image/png"
+            img_bytes = img_path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(img_bytes)))
+            self.send_header("Content-Security-Policy", _CSP)
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(img_bytes)
 
         else:
             self._send(404, "<h1>Not Found</h1>")

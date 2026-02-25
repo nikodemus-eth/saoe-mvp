@@ -8,7 +8,8 @@
     "properties": {
       "title": {"type": "string", "maxLength": 200},
       "body_markdown": {"type": "string", "maxLength": 200000},
-      "image_present": {"type": "boolean"}
+      "image_present": {"type": "boolean"},
+      "image_count": {"type": "integer", "minimum": 0, "maximum": 2}
     },
     "additionalProperties": false
   },
