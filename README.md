@@ -2,6 +2,8 @@
 
 A multi-agent pipeline that enforces signed, audited, replay-protected intent envelopes before any side effect occurs. Agents declare intent; a compiler generates signed plans; a ToolGate enforces them.
 
+✅ **v0.1.0 RT-Hardened** — released 2026-02-25 · 150/150 tests passing (77 unit + 6 E2E + 32 adversarial + 35 confirmatory)
+
 **This is an MVP demonstrating security architecture concepts.** See [Production Gaps](#production-gaps) for what is not claimed.
 
 ---
@@ -115,7 +117,7 @@ Expected output ends with: `BLOCKED: Forged plan rejected at plan signature veri
 pytest saoe-core/tests/ -v
 ```
 
-83 tests (77 unit + 6 E2E). All must pass before shipping.
+150 tests (77 unit + 6 E2E + 32 adversarial + 35 confirmatory). All pass.
 
 ---
 
@@ -147,8 +149,7 @@ examples/
 
 docs/
   ARCHITECTURE.md            Actual implementation architecture
-  SECURITY_INVARIANTS.md     All enforced invariants + test mapping
-  threat_model.md            Threat model and assumptions
+  threat_model.md            Threat model v1.1 (RT-Hardened) — invariants + test mapping
   production_gaps.md         Explicit list of MVP limitations
   testing/
     UNIT_TEST_PLAN.md
@@ -164,7 +165,7 @@ docs/
 
 ## Security Invariants
 
-16 enforced invariants with passing tests. See [SECURITY_INVARIANTS.md](SECURITY_INVARIANTS.md).
+16+ enforced invariants with passing tests. See [docs/threat_model.md](docs/threat_model.md) for the full list with test references.
 
 ---
 
