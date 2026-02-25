@@ -196,3 +196,86 @@ def test_assemble_html_xss_in_image_path_stripped():
     assert "<script>" not in html, (
         "Script tag from image_path must be stripped before it reaches the HTML"
     )
+
+
+# ---------------------------------------------------------------------------
+# Security RT-2.3: path traversal via session_id in output filename
+# ---------------------------------------------------------------------------
+
+
+def test_write_output_atomically_rejects_path_traversal(tmp_path):
+    """session_id containing ../ must be rejected before any file is written.
+
+    RT-2.3: if session_id = '../evil', _write_output_atomically must raise
+    ValueError and must NOT write output_dir.parent / 'evil.html'.
+    An attacker who controls the session_id field in a SATL envelope could
+    otherwise write arbitrary files on the host filesystem.
+    """
+    output_dir = tmp_path / "output"
+    evil_session_id = "../evil"
+
+    with pytest.raises(ValueError, match="session_id"):
+        da._write_output_atomically(output_dir, evil_session_id, "<html/>")
+
+    # The file must NOT have been created outside output_dir
+    assert not (tmp_path / "evil.html").exists(), (
+        "Path traversal via session_id must not write files outside output_dir"
+    )
+
+
+def test_write_output_atomically_rejects_absolute_session_id(tmp_path):
+    """session_id that looks like an absolute path must also be rejected.
+
+    RT-2.3 variant: session_id = '/etc/cron.d/saoe' would resolve to an
+    absolute path on some systems; must be caught by the same guard.
+    """
+    output_dir = tmp_path / "output"
+
+    with pytest.raises(ValueError, match="session_id"):
+        da._write_output_atomically(output_dir, "/etc/cron.d/saoe", "<html/>")
+
+
+# ---------------------------------------------------------------------------
+# Security RT-3.1: html_body defense-in-depth sanitization
+# ---------------------------------------------------------------------------
+
+
+def test_assemble_html_body_script_injection_blocked():
+    """html_body containing <script> must be stripped — deployment_agent
+    must not blindly trust that text_formatter_agent already sanitized it.
+
+    RT-3.1: defense-in-depth requires that _assemble_html re-sanitizes
+    html_body even if text_formatter_agent is expected to have done so.
+    A compromised or buggy formatter could still inject scripts.
+    """
+    text_data = {
+        "title": "Clean Title",
+        "html_body": "<script>alert('injection')</script><p>Safe content</p>",
+        "image_present": False,
+    }
+
+    html = da._assemble_html(text_data, None)
+
+    assert "<script>" not in html, (
+        "Script tag in html_body must be stripped by deployment_agent "
+        "(defense-in-depth — cannot rely solely on text_formatter_agent)"
+    )
+    assert "Safe content" in html, "Legitimate paragraph content must be preserved"
+
+
+def test_assemble_html_body_inline_event_handler_stripped():
+    """onerror= and onclick= attributes in html_body must be removed.
+
+    RT-3.1 variant: inline event handlers can execute script without <script> tags.
+    bleach must strip these even if the tags themselves are allowed.
+    """
+    text_data = {
+        "title": "Event Handler Test",
+        "html_body": '<p onclick="alert(1)">Click me</p><img onerror="alert(2)" src="x">',
+        "image_present": False,
+    }
+
+    html = da._assemble_html(text_data, None)
+
+    assert "onclick" not in html, "onclick attribute must be stripped from html_body"
+    assert "onerror" not in html, "onerror attribute must be stripped from html_body"
