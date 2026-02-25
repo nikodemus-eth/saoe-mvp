@@ -5,101 +5,46 @@ all expected parts have arrived, and that the output path matches session_id.
 
 This test exercises the join logic directly (not via the full agent polling loop)
 to avoid requiring a running agent infrastructure.
+
+Imports from the production deployment_agent module (via conftest sys.path addition)
+so the test cannot diverge from the actual assembly logic.
 """
-import json
 import sqlite3
 from pathlib import Path
 
-import bleach
 import pytest
 
 
 # ---------------------------------------------------------------------------
-# Helpers mirroring deployment_agent internals
+# Import from production deployment_agent
+# (conftest.py adds examples/demo/agents to sys.path)
+# ---------------------------------------------------------------------------
+
+import deployment_agent as da
+
+
+# ---------------------------------------------------------------------------
+# Thin test helpers — just DB setup/insert, no logic duplication
 # ---------------------------------------------------------------------------
 
 
 def _init_deploy_db(db_path: Path) -> None:
-    conn = sqlite3.connect(str(db_path))
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS deploy_parts (
-            session_id TEXT NOT NULL,
-            part_name  TEXT NOT NULL,
-            content    TEXT NOT NULL,
-            PRIMARY KEY (session_id, part_name)
-        )
-    """)
-    conn.commit()
-    conn.close()
+    """Initialise the deploy_parts schema using the production helper."""
+    da._ensure_schema(db_path)
 
 
 def _insert_part(db_path: Path, session_id: str, part_name: str, content: dict) -> None:
-    conn = sqlite3.connect(str(db_path))
-    conn.execute(
-        "INSERT OR REPLACE INTO deploy_parts (session_id, part_name, content) VALUES (?, ?, ?)",
-        (session_id, part_name, json.dumps(content)),
-    )
-    conn.commit()
-    conn.close()
+    """Insert a deploy part using the production upsert helper."""
+    da._upsert_part(db_path, session_id, part_name, content)
 
 
 def _check_and_assemble(db_path: Path, session_id: str, output_dir: Path) -> Path | None:
-    """Return output HTML path if complete, else None."""
-    conn = sqlite3.connect(str(db_path))
-    text_row = conn.execute(
-        "SELECT content FROM deploy_parts WHERE session_id = ? AND part_name = 'text'",
-        (session_id,),
-    ).fetchone()
-    if text_row is None:
-        conn.close()
+    """Delegate entirely to production functions — no logic duplication."""
+    complete, text_data, img_data = da._check_completeness(db_path, session_id)
+    if not complete:
         return None
-
-    text_data = json.loads(text_row[0])
-    image_present = text_data.get("image_present", False)
-    expected_parts = 2 if image_present else 1
-
-    part_count = conn.execute(
-        "SELECT COUNT(*) FROM deploy_parts WHERE session_id = ?",
-        (session_id,),
-    ).fetchone()[0]
-
-    img_row = conn.execute(
-        "SELECT content FROM deploy_parts WHERE session_id = ? AND part_name = 'image'",
-        (session_id,),
-    ).fetchone()
-    conn.close()
-
-    if part_count < expected_parts:
-        return None
-
-    title = bleach.clean(text_data["title"], tags=[], strip=True)
-    html_body = text_data["html_body"]
-
-    img_html = ""
-    if img_row:
-        img_data = json.loads(img_row[0])
-        img_path = bleach.clean(img_data["image_path"], tags=[], strip=True)
-        img_html = f'<img src="{img_path}" alt="Article image" />\n'
-
-    full_html = (
-        "<!DOCTYPE html>\n"
-        '<html lang="en">\n'
-        f"<head><meta charset=\"UTF-8\"><title>{title}</title></head>\n"
-        "<body>\n"
-        f"<h1>{title}</h1>\n"
-        f"{img_html}"
-        f"{html_body}\n"
-        "</body>\n"
-        "</html>\n"
-    )
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / f"{session_id}.html"
-    tmp_path = out_path.with_suffix(".tmp")
-    tmp_path.write_text(full_html, encoding="utf-8")
-    tmp_path.rename(out_path)
-    return out_path
+    html = da._assemble_html(text_data, img_data)
+    return da._write_output_atomically(output_dir, session_id, html)
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +117,13 @@ def test_image_article_two_parts_produces_html(tmp_path):
     content = out.read_text(encoding="utf-8")
     assert "Full Article" in content
     assert "<img" in content
-    assert "/tmp/saoe/output/photo_safe.jpg" in content
+    # Deployment agent uses a relative URL (filename only) — not the raw filesystem path
+    assert 'src="/output/photo_safe.jpg"' in content, (
+        "img src must be a relative URL, not a raw filesystem path"
+    )
+    assert "/tmp/saoe/output/photo_safe.jpg" not in content, (
+        "Raw filesystem path must NOT appear in the rendered HTML"
+    )
 
 
 def test_output_path_matches_session_id(tmp_path):
