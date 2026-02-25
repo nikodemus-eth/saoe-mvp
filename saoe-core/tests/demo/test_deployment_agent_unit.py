@@ -141,3 +141,58 @@ def test_write_output_atomically_no_temp_file_left(tmp_path):
 
     tmp_files = list(output_dir.glob("*.tmp"))
     assert tmp_files == [], f"Unexpected .tmp files left behind: {tmp_files}"
+
+
+# ---------------------------------------------------------------------------
+# Security: path traversal in image_path field
+# ---------------------------------------------------------------------------
+
+
+def test_assemble_html_path_traversal_in_image_path_blocked():
+    """image_path containing ../ must not produce a traversal in the img src.
+
+    If image_path = '../../etc/passwd', the img src must be
+    /output/passwd (filename only), never /output/../../etc/passwd.
+    This protects against an attacker who controls the deploy_parts DB row.
+    """
+    text_data = {
+        "title": "Traversal Test",
+        "html_body": "<p>ok</p>",
+        "image_present": True,
+    }
+    img_data = {"image_path": "../../etc/passwd"}
+
+    html = da._assemble_html(text_data, img_data)
+
+    assert "../" not in html, (
+        "Path traversal sequence ../ must not appear in the assembled HTML"
+    )
+    assert 'src="/output/passwd"' in html, (
+        "Only the filename should be used as the relative URL"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Security: XSS via image_path field
+# ---------------------------------------------------------------------------
+
+
+def test_assemble_html_xss_in_image_path_stripped():
+    """Script tags in image_path must be stripped by bleach before insertion.
+
+    If image_path = '<script>alert("xss")</script>evil.jpg', the rendered
+    HTML must not contain <script>.
+    This protects against an attacker who controls the deploy_parts DB row.
+    """
+    text_data = {
+        "title": "XSS Image Path Test",
+        "html_body": "<p>ok</p>",
+        "image_present": True,
+    }
+    img_data = {"image_path": '<script>alert("xss")</script>evil.jpg'}
+
+    html = da._assemble_html(text_data, img_data)
+
+    assert "<script>" not in html, (
+        "Script tag from image_path must be stripped before it reaches the HTML"
+    )
