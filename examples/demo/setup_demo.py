@@ -142,15 +142,24 @@ def _make_vault_writable() -> None:
     if _VAULT_DIR.exists():
         for p in _VAULT_DIR.rglob("*"):
             try:
-                p.chmod(p.stat().st_mode | stat.S_IWRITE | stat.S_IUSR)
+                p.chmod(p.stat().st_mode | stat.S_IWRITE | stat.S_IWUSR)
             except Exception:
                 pass
-        _VAULT_DIR.chmod(_VAULT_DIR.stat().st_mode | stat.S_IWRITE | stat.S_IUSR)
+        _VAULT_DIR.chmod(_VAULT_DIR.stat().st_mode | stat.S_IWRITE | stat.S_IWUSR)
 
 
 def _make_vault_readonly() -> None:
-    """Remove write permission from vault directory (FT-001)."""
+    """Remove write permission from vault directory (FT-001).
+
+    The age identity key is exempted: AgeVault requires exactly 0600 (owner
+    read+write) so that the age CLI can open it.  All other vault files become
+    read-only (write bit stripped for owner, group, and other).
+    """
     for p in _VAULT_DIR.rglob("*"):
+        if p == _AGE_IDENTITY:
+            # Must stay 0600 — AgeVault._validate_identity_file_permissions() enforces this.
+            p.chmod(0o600)
+            continue
         try:
             current = p.stat().st_mode
             p.chmod(current & ~(stat.S_IWRITE | stat.S_IWGRP | stat.S_IWOTH))
@@ -221,6 +230,12 @@ def main() -> None:
     # 1. Create directories
     # ------------------------------------------------------------------
     print("\n[1/7] Creating directories…")
+    # Clear stale state from previous runs (queues, audit DB, output).
+    for stale in [_EVENTS_DB, *_QUEUES_DIR.rglob("*.satl.json"), *_AGENT_STORES_DIR.rglob("*.json")]:
+        try:
+            stale.unlink(missing_ok=True)
+        except Exception:
+            pass
     _make_vault_writable()
     for d in [
         _VAULT_DIR / "keys",
@@ -243,6 +258,10 @@ def main() -> None:
     # 2. Generate age identity key
     # ------------------------------------------------------------------
     print("\n[2/7] Generating age identity key…")
+    # age-keygen refuses to overwrite; delete on re-setup.
+    if _AGE_IDENTITY.exists():
+        _AGE_IDENTITY.chmod(0o600)
+        _AGE_IDENTITY.unlink()
     result = subprocess.run(
         [age_keygen_bin, "-o", str(_AGE_IDENTITY)],
         capture_output=True, check=True,

@@ -58,11 +58,14 @@ CREATE TABLE IF NOT EXISTS audit_events (
 );
 """
 
-# Partial index: UNIQUE only where envelope_id IS NOT NULL (FT-002).
+# Partial index: UNIQUE only for 'validated' events (FT-002).
+# This allows 'forwarded'/'rejected' events to share an envelope_id with the
+# corresponding 'validated' event, while still preventing an envelope from
+# being validated more than once (the actual replay threat).
 _CREATE_ENVELOPE_IDX = """
 CREATE UNIQUE INDEX IF NOT EXISTS idx_envelope_id
     ON audit_events (envelope_id)
-    WHERE envelope_id IS NOT NULL;
+    WHERE envelope_id IS NOT NULL AND event_type = 'validated';
 """
 
 _CREATE_SESSION_IDX = """
