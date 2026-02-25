@@ -6,6 +6,7 @@ and image_filter_agent (image_process_intent template). Once all expected parts
 arrive, assembles the final HTML and writes it atomically.
 """
 import json
+import re
 import sqlite3
 from pathlib import Path
 
@@ -18,6 +19,28 @@ from saoe_core.satl.validator import ValidationResult
 # ---------------------------------------------------------------------------
 # Deploy-parts SQLite helpers
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Security constants
+# ---------------------------------------------------------------------------
+
+# RT-2.3: session_id must contain only safe filename characters.
+# Rejects path separators, null bytes, and any character that could be used
+# for path traversal or shell injection when used as a filename.
+_SESSION_ID_RE = re.compile(r"[A-Za-z0-9_\-]{1,128}")
+
+# RT-3.1: Allowed HTML tags for html_body defense-in-depth sanitization.
+# Same allowlist as text_formatter_agent — deployment_agent re-sanitizes
+# even though text_formatter_agent already sanitized, to prevent a
+# compromised or buggy formatter from injecting scripts.
+_HTML_BODY_ALLOWED_TAGS = list(bleach.sanitizer.ALLOWED_TAGS) + [
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "pre", "code", "blockquote", "br", "hr",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "p", "div", "span",
+]
+_HTML_BODY_ALLOWED_ATTRS = dict(bleach.sanitizer.ALLOWED_ATTRIBUTES)
 
 
 def _get_deploy_db_path(config: dict) -> Path:
@@ -95,7 +118,15 @@ def _check_completeness(db_path: Path, session_id: str) -> tuple[bool, dict | No
 def _assemble_html(text_data: dict, img_data: dict | None) -> str:
     """Assemble final HTML from text and optional image parts."""
     title = bleach.clean(text_data["title"], tags=[], strip=True)
-    html_body = text_data["html_body"]  # already sanitized by text_formatter_agent
+    # RT-3.1: Defense-in-depth — re-sanitize html_body even though
+    # text_formatter_agent is expected to have done so already.  A compromised
+    # or buggy formatter must not be able to inject scripts into the final HTML.
+    html_body = bleach.clean(
+        text_data["html_body"],
+        tags=_HTML_BODY_ALLOWED_TAGS,
+        attributes=_HTML_BODY_ALLOWED_ATTRS,
+        strip=True,
+    )
 
     img_html = ""
     if img_data:
@@ -117,6 +148,13 @@ def _assemble_html(text_data: dict, img_data: dict | None) -> str:
 
 
 def _write_output_atomically(output_dir: Path, session_id: str, html: str) -> Path:
+    # RT-2.3: Validate session_id before using it as a filename component.
+    # Reject any session_id that contains path separators, dots, or other
+    # characters that could cause writes outside of output_dir.
+    if not _SESSION_ID_RE.fullmatch(session_id):
+        raise ValueError(
+            f"Unsafe session_id {session_id!r}: must match [A-Za-z0-9_\\-]{{1,128}}"
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"{session_id}.html"
     tmp_path = out_path.with_suffix(".tmp")
