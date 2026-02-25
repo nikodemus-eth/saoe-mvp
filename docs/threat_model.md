@@ -1,7 +1,7 @@
 # SAOE Threat Model
 
-**Version:** 1.0
-**Date:** 2026-02-24
+**Version:** 1.1 (RT-Hardened)
+**Date:** 2026-02-25 (updated after red team pass)
 **Scope:** SAOE MVP — macOS demo environment
 
 ---
@@ -68,10 +68,13 @@ Sends an envelope with duplicate JSON keys to exploit parser ambiguity.
 ### 3.5 Schema Smuggling Attacker
 Crafts a payload that passes schema validation but carries semantic content that triggers unsafe downstream behaviour.
 
+**Controls:**
+- JSON Schema validates structure and types; `additionalProperties: false` on all templates rejects unknown fields.
+- `text_formatter_agent` sanitizes markdown output through `bleach.clean()` with an explicit tag+attribute allowlist before producing `html_body`.
+- `deployment_agent` **re-sanitizes `html_body` through a second `bleach.clean()` call** (defense-in-depth — RT-3.1 fix, 2026-02-25). A compromised or buggy `text_formatter_agent` cannot inject `<script>` or event-handler attributes into the final HTML. Test: `test_assemble_html_body_script_injection_blocked`.
+
 **Residual Risk (Production Gap):**
-- JSON Schema validates structure and types but cannot catch all semantic attacks (e.g., valid markdown that generates adversarial HTML).
-- Mitigation: `bleach.clean()` in text_formatter_agent and deployment_agent strips disallowed tags and attributes from all rendered output (FT-008).
-- Residual: An attacker could craft markdown that generates visually misleading but schema-valid content (typosquatting, phishing text). No automated defense; requires human review of output.
+- Schema-valid markdown that generates visually misleading but syntactically safe content (typosquatting, phishing text) is not blocked automatically; requires human review of output.
 
 ### 3.6 Tool Argument Injection
 An agent attempts to pass unexpected or path-traversal arguments to a ToolGate tool.
@@ -95,6 +98,13 @@ The log viewer renders audit event data; an attacker who controls an agent could
 - All dynamic values pass through `bleach.clean(text, tags=[], strip=True)` before HTML insertion (FT-008).
 - Strict `Content-Security-Policy: default-src 'none'` header on every response.
 - `X-Frame-Options: DENY` prevents clickjacking.
+
+### 3.9 Output Path Traversal via `session_id` *(RT-2.3 — patched 2026-02-25)*
+`deployment_agent._write_output_atomically` used `session_id` directly as a filename component with no validation. A compromised `sanitization_agent` or `over_agent` could craft `session_id = "../evil"` to write `output_dir.parent/evil.html`, or `session_id = "/etc/cron.d/saoe"` to write an arbitrary absolute path. Confirmed in red team pass: the unpatched code produced `FileNotFoundError: [Errno 2] No such file or directory: '/etc/cron.d/saoe.tmp'`, proving the write was attempted.
+
+**Controls (post-patch):**
+- `_SESSION_ID_RE = re.compile(r"[A-Za-z0-9_\-]{1,128}")` is applied via `fullmatch()` at the entry point of `_write_output_atomically`; raises `ValueError` immediately on any character that could escape the output directory (path separators, dots, null bytes, etc.).
+- Tests: `test_write_output_atomically_rejects_path_traversal`, `test_write_output_atomically_rejects_absolute_session_id`.
 
 ---
 
