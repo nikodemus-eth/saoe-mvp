@@ -64,7 +64,8 @@ def _query_recent_events(db_path: Path, limit: int = 200) -> list[dict]:
         ).fetchall()
         conn.close()
         return [dict(r) for r in rows]
-    except Exception:
+    except Exception as exc:
+        print(f"[log_viewer] WARNING: Could not read audit DB: {exc}", file=sys.stderr)
         return []
 
 
