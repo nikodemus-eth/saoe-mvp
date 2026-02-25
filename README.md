@@ -1,32 +1,50 @@
 # SAOE — Secure Agent Operating Environment
 
-A multi-agent pipeline that enforces signed, audited, replay-protected intent envelopes before any side effect occurs. Agents declare intent; a compiler generates signed plans; a ToolGate enforces them.
+**v0.1.0 RT-Hardened** • MVP Release Candidate
 
-✅ **v0.1.0 RT-Hardened** — released 2026-02-25 · 150/150 tests passing (77 unit + 6 E2E + 32 adversarial + 35 confirmatory)
+A capability-constrained, schema-enforced multi-agent pipeline.
+Every action is authorized by a **signed ExecutionPlan**. Every message travels in a **SATL envelope**. Default-deny ToolGate. Full audit trail. Red-team validated.
 
-**This is an MVP demonstrating security architecture concepts.** See [Production Gaps](#production-gaps) for what is not claimed.
-
----
-
-## What SAOE Does
-
-- Every inter-agent message is a **SATL envelope**: cryptographically signed, schema-validated, and replay-protected.
-- Agents **never produce executable actions directly** — they emit intent.
-- A compiler agent (over_agent) translates validated intent into a **signed ExecutionPlan**.
-- A **ToolGate** verifies the plan signature before any tool call reaches the filesystem.
-- Every event — validation, forwarding, rejection, execution — is written to an **append-only audit log**.
-
-## What SAOE Does Not Claim
-
-- OS-level process isolation (agents share a filesystem)
-- Encrypted inter-agent transport (queue files are plaintext JSON)
-- Key revocation or rotation
-- Distributed audit log
-- Protection against a compromised agent process
+![Python](https://img.shields.io/badge/Python-3.12+-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-MVP--RC-orange)
 
 ---
 
-## 5-Minute Reproducible Demo
+## Quick Start (One-Command Docker Demo)
+
+```bash
+git clone https://github.com/nikodemus-eth/saoe-mvp.git
+cd saoe-mvp/examples/demo
+
+# Bootstrap once
+docker compose run --rm setup
+
+# Start pipeline + live Log Viewer
+docker compose up -d sanitization over-agent text-formatter image-filter deployment log-viewer
+
+# Trigger a blog post (text + optional image)
+docker compose run --rm intake --text "Secure agents just got hardened."
+```
+
+Open `http://localhost:8080` → watch the live audit trail and final HTML article appear.
+
+---
+
+## What SAOE Guarantees (v0.1.0)
+
+- **SATL Transport** — signed envelopes, canonical template vault, no sender-trusted schemas
+- **Deterministic ExecutionPlan** — intent → signed plan → ToolGate only
+- **ToolGate** — default-deny, explicit allowlist, argument schema validation
+- **Replay & Tamper Protection** — `envelope_id` UNIQUE + signature verification
+- **Output Controls** — regex-validated `session_id`, realpath, final bleach re-sanitization (RT-2.3 & RT-3.1 fixed)
+- **Red-Team Hardened** — +32 adversarial tests, 150/150 pass, 2 high-impact vulns remediated
+
+See [SECURITY_INVARIANTS.md](SECURITY_INVARIANTS.md) (16 enforced invariants) and [docs/threat_model.md](docs/threat_model.md).
+
+---
+
+## 5-Minute Local Demo (non-Docker)
 
 ### Prerequisites
 
@@ -121,7 +139,7 @@ pytest saoe-core/tests/ -v
 
 ---
 
-## Repository Layout
+## Repository Structure
 
 ```
 saoe-core/           Core library (validator, vault, toolgate, audit, safe_fs)
@@ -137,6 +155,7 @@ saoe-core/           Core library (validator, vault, toolgate, audit, safe_fs)
   tests/
     unit/                    77 unit tests (FT-001 through FT-010 + more)
     e2e/                     6 end-to-end tests
+    demo/                    32 adversarial + 35 confirmatory security tests
 
 saoe-openclaw/       AgentShim (polling loop, send/receive, quarantine)
 
@@ -148,7 +167,6 @@ examples/
   attacks/                   4 adversarial demonstration scripts
 
 docs/
-  ARCHITECTURE.md            Actual implementation architecture
   threat_model.md            Threat model v1.1 (RT-Hardened) — invariants + test mapping
   production_gaps.md         Explicit list of MVP limitations
   testing/
@@ -163,12 +181,45 @@ docs/
 
 ---
 
+## Production Gaps (Honest & Explicit)
+
+This is an architectural demonstrator, not production software. See [docs/production_gaps.md](docs/production_gaps.md) for the complete list (no HSM, no mTLS, no container sandboxing, etc.).
+
+---
+
+## Red-Team Hardening Summary
+
+| | |
+|---|---|
+| Pre-red-team | 118 tests |
+| Post-red-team | 150 tests (+32 adversarial) |
+| Pass rate | 150/150 |
+
+Key fixes:
+- **RT-2.3 Path traversal** → strict regex + realpath on `session_id`
+- **RT-3.1 XSS** → final re-sanitization in `deployment_agent`
+
+Full details → [docs/threat_model.md](docs/threat_model.md) and [logs/TESTING.md](logs/TESTING.md)
+
+---
+
 ## Security Invariants
 
 16+ enforced invariants with passing tests. See [docs/threat_model.md](docs/threat_model.md) for the full list with test references.
 
 ---
 
-## Production Gaps
+## Next Steps (Roadmap)
 
-This MVP is a security architecture demonstrator, not a production system. See [docs/production_gaps.md](docs/production_gaps.md) for the explicit gap list.
+- Immutable Merkle audit ledger
+- mTLS + WireGuard inter-agent transport
+- Per-agent container isolation
+- Vault-backed key rotation
+
+Contributions welcome — see CONTRIBUTING.md (coming in v0.1.1).
+
+---
+
+Made for OpenClaw users, self-hosters, and anyone who wants agents that can't quietly do bad things.
+
+⭐ Star if this moves the needle for secure agent pipelines.
