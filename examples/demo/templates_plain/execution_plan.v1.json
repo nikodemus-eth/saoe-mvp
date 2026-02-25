@@ -1,0 +1,30 @@
+{
+  "template_id": "execution_plan",
+  "version": "1",
+  "schema_purpose": "Signed execution plan emitted by over_agent compiler.",
+  "json_schema": {
+    "type": "object",
+    "required": ["plan_id", "session_id", "issuer_id", "timestamp_utc", "tool_calls", "plan_signature"],
+    "properties": {
+      "plan_id": {"type": "string"},
+      "session_id": {"type": "string"},
+      "issuer_id": {"type": "string"},
+      "timestamp_utc": {"type": "string"},
+      "tool_calls": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["tool_call_id", "tool_name", "args"],
+          "properties": {
+            "tool_call_id": {"type": "string"},
+            "tool_name": {"type": "string"},
+            "args": {"type": "object"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "plan_signature": {"type": "string"}
+    },
+    "additionalProperties": false
+  }
+}

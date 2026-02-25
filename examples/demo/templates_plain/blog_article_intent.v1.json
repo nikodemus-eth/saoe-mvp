@@ -1,0 +1,22 @@
+{
+  "template_id": "blog_article_intent",
+  "version": "1",
+  "schema_purpose": "Intent envelope for blog article generation.",
+  "json_schema": {
+    "type": "object",
+    "required": ["title", "body_markdown", "image_present"],
+    "properties": {
+      "title": {"type": "string", "maxLength": 200},
+      "body_markdown": {"type": "string", "maxLength": 200000},
+      "image_present": {"type": "boolean"}
+    },
+    "additionalProperties": false
+  },
+  "policy_metadata": {
+    "max_payload_bytes": 262144,
+    "allowed_senders": ["intake_agent", "sanitization_agent", "over_agent", "text_formatter_agent"],
+    "allowed_receivers": ["sanitization_agent", "over_agent", "text_formatter_agent", "deployment_agent"]
+  },
+  "capability_set_id": "caps_blog_article_intent_v1",
+  "capability_set_version": "1"
+}

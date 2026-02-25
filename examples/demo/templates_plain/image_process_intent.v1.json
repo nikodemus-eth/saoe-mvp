@@ -1,0 +1,23 @@
+{
+  "template_id": "image_process_intent",
+  "version": "1",
+  "schema_purpose": "Intent envelope for image processing.",
+  "json_schema": {
+    "type": "object",
+    "required": ["input_image_path_token", "strip_exif", "resize_max", "output_format"],
+    "properties": {
+      "input_image_path_token": {"type": "string", "maxLength": 200},
+      "strip_exif": {"type": "boolean"},
+      "resize_max": {"type": "integer", "minimum": 64, "maximum": 4096},
+      "output_format": {"type": "string", "enum": ["jpg", "png"]}
+    },
+    "additionalProperties": false
+  },
+  "policy_metadata": {
+    "max_payload_bytes": 65536,
+    "allowed_senders": ["intake_agent", "sanitization_agent", "over_agent", "image_filter_agent"],
+    "allowed_receivers": ["sanitization_agent", "over_agent", "image_filter_agent", "deployment_agent"]
+  },
+  "capability_set_id": "caps_image_process_intent_v1",
+  "capability_set_version": "1"
+}

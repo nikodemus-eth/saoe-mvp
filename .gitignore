@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+*.egg
+.pytest_cache/
+.ruff_cache/
+*.pyc
+.DS_Store
+examples/demo/demo_config.json

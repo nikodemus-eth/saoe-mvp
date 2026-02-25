@@ -1,0 +1,17 @@
+{
+  "template_id": "tool_result",
+  "version": "1",
+  "schema_purpose": "Tool result envelope emitted by ToolGate after tool execution.",
+  "json_schema": {
+    "type": "object",
+    "required": ["plan_id", "tool_call_id", "tool_name", "result", "session_id"],
+    "properties": {
+      "plan_id": {"type": "string"},
+      "tool_call_id": {"type": "string"},
+      "tool_name": {"type": "string"},
+      "session_id": {"type": "string"},
+      "result": {"type": "object"}
+    },
+    "additionalProperties": false
+  }
+}
