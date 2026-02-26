@@ -91,7 +91,7 @@ header[role=banner]{
   background:var(--surface);border-bottom:1px solid var(--border)}
 nav[aria-label="Main navigation"]{
   display:flex;align-items:center;padding:0 24px;height:52px;
-  max-width:960px;margin:0 auto;width:100%;gap:8px}
+  max-width:960px;margin:0 auto;width:100%%;gap:8px}
 .nav-brand{
   display:flex;align-items:center;gap:7px;margin-right:20px;flex-shrink:0;
   color:var(--accent);font-family:var(--font-mono);font-weight:700;
@@ -111,7 +111,7 @@ nav ul[role=list] a[aria-current=page]{
   border-color:rgba(34,211,238,.28)}
 
 /* Layout */
-main{flex:1;padding:40px 24px;max-width:680px;margin:0 auto;width:100%}
+main{flex:1;padding:40px 24px;max-width:680px;margin:0 auto;width:100%%}
 h1{font-size:1.15rem;font-weight:700;color:var(--text-strong);
   margin-bottom:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .page-sub{font-size:.8rem;color:var(--text-muted);margin-bottom:36px;margin-top:4px}
@@ -130,7 +130,7 @@ label{
   margin-bottom:6px;font-size:.83rem}
 .label-opt{font-weight:400;color:var(--text-muted);font-size:.78rem}
 input[type=text],textarea{
-  width:100%;background:var(--surface-2);border:1px solid var(--border);
+  width:100%%;background:var(--surface-2);border:1px solid var(--border);
   border-radius:7px;padding:10px 13px;
   color:var(--text);font-size:.88rem;font-family:var(--font-ui);
   transition:border-color .15s,outline .15s}
@@ -147,7 +147,7 @@ legend{
 .img-row{display:flex;gap:16px;margin-top:12px}
 .img-slot{flex:1}
 .img-slot label{font-weight:400;font-size:.78rem;color:var(--text-muted);margin-bottom:4px}
-input[type=file]{color:var(--text);font-size:.78rem;width:100%}
+input[type=file]{color:var(--text);font-size:.78rem;width:100%%}
 input[type=file]::file-selector-button{
   background:var(--surface-2);border:1px solid var(--border);
   color:var(--text);border-radius:4px;padding:4px 10px;
