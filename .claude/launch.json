@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "intake-form",
+      "runtimeExecutable": "/Users/nikodemus/Documents/SAOE/.venv/bin/python",
+      "runtimeArgs": ["examples/demo/serve_intake_form.py"],
+      "port": 8090
+    },
+    {
+      "name": "log-viewer",
+      "runtimeExecutable": "/Users/nikodemus/Documents/SAOE/.venv/bin/python",
+      "runtimeArgs": ["examples/demo/serve_log_viewer.py"],
+      "port": 8080
+    }
+  ]
+}
