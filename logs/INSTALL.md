@@ -43,7 +43,7 @@
 | Output HTML written | COMPLETE | /tmp/saoe/output/{session_id}.html — assembled by deployment_agent |
 | 8 audit events in DB | COMPLETE | validated → forwarded × 3 hops → tool_executed → forwarded → validated |
 | Log viewer at http://localhost:8080 | COMPLETE | Shows audit table; /output/ lists assembled articles |
-| All 83 tests pass | COMPLETE | 77 unit + 6 E2E; `pytest saoe-core/tests/` |
+| All 150 tests pass | COMPLETE | 118 baseline + 32 adversarial (RT pass); `pytest saoe-core/tests/` |
 
 ## Quick-start (after initial install)
 
